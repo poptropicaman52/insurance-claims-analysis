@@ -1,0 +1,186 @@
+---
+title: "Main"
+output: html_document
+---
+```{r}
+
+```
+
+
+```{r}
+getwd()
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Markdown 
+
+```{r}
+claims = read.csv("General_Analytics_Claims.csv")
+claims
+```
+```{r}
+library(lubridate)
+
+claims$format<-paste(claims$claim_date, '0:00:00', sep = " ")
+claims$hms<- mdy_hms(claims$format)
+
+  
+
+```
+```{r}
+claims
+```
+
+
+```{r}
+plot(x = claims$hms, y = claims$claim_amount/9274, main = "Claim Severity vs. Time", xlab = "Time", ylab = "Claim Severity")
+
+```
+```{r}
+catClaims = claims[which (claims$claim_amount > 370960), ]
+catClaims
+```
+```{r}
+policies = read.csv("General_Analytics_Policies.csv")
+```
+
+
+```{r}
+policies
+
+```
+
+
+```{r}
+plot(catClaims$hms, catClaims$claim_amount/9274, main = "Severe Claims Vs. Time", xlab = "Time (2017)", ylab = "Severity")
+```
+
+```{r}
+severeByPolicy = merge(catClaims, policies, by="policy_number")
+severeByPolicy
+```
+
+```{r}
+plot(severeByPolicy$county, severeByPolicy$claim_amount/9274, main = "Severe Claims by County", xlab = "County", ylab = "Severity")
+```
+```{r}
+napa = 0
+solano = 0
+sonoma = 0
+
+for(row in 1:nrow(severeByPolicy))
+{
+  cnty <- severeByPolicy[row, "county"] 
+  if(cnty == "Napa")
+  {
+    napa = napa + 1
+  }
+  if(cnty == "Sonoma")
+  {
+    sonoma = sonoma + 1
+  }
+  if(cnty == "Solano")
+  {
+    solano = solano + 1
+  }
+}
+
+"Napa: "
+napa
+""
+"Sonoma: "
+sonoma
+""
+"Solano"
+solano
+""
+"Total: "
+napa+sonoma+solano
+```
+
+```{r}
+#Open and merge claims with policy numbers
+policys <- read.csv("General_Analytics_Policies.csv")
+claims <- read.csv("General_Analytics_Claims.csv")
+policy_regress <- merge(policys,claims,by="policy_number")
+policy_regress
+```
+
+
+```{r}
+#Checking and converting public protection class column from int to factor to relevel
+typeof(policy_regress$public_protection_class)
+policy_regress$public_protection_class <- as.factor(policy_regress$public_protection_class) 
+typeof(policy_regress$public_protection_class)
+```
+
+```{r}
+#Checking baseline categories
+levels(policy_regress$agency)
+levels(policy_regress$county)
+levels(policy_regress$construction_type)
+levels(policy_regress$roof_type)
+levels(policy_regress$construction_year)
+levels(policy_regress$square_footage)
+levels(policy_regress$public_protection_class)
+levels(policy_regress$house_value)
+```
+
+```{r}
+#Correcting baseline categories
+policy_regress$county <-relevel(policy_regress$county, ref="Solano")
+policy_regress$construction_type <-relevel(policy_regress$construction_type, ref="Frame")
+policy_regress$roof_type <-relevel(policy_regress$roof_type, ref="Tile")
+policy_regress$construction_year <-relevel(policy_regress$construction_year, ref="1986 to 1999")
+policy_regress$square_footage <-relevel(policy_regress$square_footage, ref="Between 1500 and 3000")
+policy_regress$public_protection_class <-relevel(policy_regress$public_protection_class, ref="5")
+policy_regress$house_value <-relevel(policy_regress$house_value, ref="$400K to $800K")
+
+#Double checking if categories corrected
+levels(policy_regress$county)
+levels(policy_regress$construction_type)
+levels(policy_regress$roof_type)
+levels(policy_regress$construction_year)
+levels(policy_regress$square_footage)
+levels(policy_regress$public_protection_class)
+levels(policy_regress$house_value)
+```
+```{r}
+#Multiple Regression
+model1 <- lm(claim_amount ~ agency + county + construction_type + roof_type + construction_year + square_footage + public_protection_class + house_value, data=policy_regress)
+
+```
+
+```{r}
+#Statistical Analysis
+summary(model1)
+```
+
+```{r}
+#Regression with removed variables
+model2 <- lm(claim_amount ~ county + construction_type + house_value, data=policy_regress)
+summary(model2)
+```
+
+```{r}
+#Making dummy variables for correlation matrix
+library(dummies)
+dummy_policy_regress <- dummy.data.frame(policy_regress, names = c("agency","county", "construction_type", "roof_type", "construction_year", "square_footage", "public_protection_class", "house_value"), sep = ".")
+dummy_policy_regress$policy_number <- NULL
+dummy_policy_regress$claim_date <- NULL
+```
+
+```{r}
+#View updated correlation data
+dummy_policy_regress
+```
+
+```{r}
+#Increase view limit and get correlation matrix
+options(max.print=1000000)
+cor(dummy_policy_regress, method = "pearson")
+```
+
+
